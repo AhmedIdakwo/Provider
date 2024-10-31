@@ -7,6 +7,8 @@
 (define-constant error-agreement-not-found (err u102))
 (define-constant error-invalid-agreement-status (err u103))
 (define-constant error-insufficient-payment (err u104))
+(define-constant error-invalid-principal (err u105))
+(define-constant error-invalid-input (err u106))
 
 ;; Contract data maps and variables
 (define-data-var contract-administrator principal tx-sender)
@@ -46,6 +48,7 @@
 (define-public (initialize-contract (administrator-address principal))
     (begin
         (asserts! (is-eq tx-sender (var-get contract-administrator)) error-unauthorized-access)
+        (asserts! (is-valid-principal administrator-address) error-invalid-principal)
         (ok (var-set contract-administrator administrator-address))
     )
 )
@@ -65,6 +68,9 @@
         (asserts! (is-none existing-service-agreement) error-agreement-exists)
         (asserts! (>= service-end-date service-start-date) error-invalid-agreement-status)
         (asserts! (> service-payment-amount u0) error-invalid-agreement-status)
+        (asserts! (is-valid-principal service-provider-address) error-invalid-principal)
+        (asserts! (is-valid-principal client-address) error-invalid-principal)
+        (asserts! (is-valid-description service-description) error-invalid-input)
         
         (map-set ServiceAgreementDetails
             { service-agreement-id: service-agreement-id }
@@ -157,6 +163,7 @@
             (is-eq tx-sender (get service-provider-address agreement-details))
             (is-eq tx-sender (get client-address agreement-details))
         ) error-unauthorized-access)
+        (asserts! (is-valid-description dispute-description) error-invalid-input)
         
         (map-set ServiceDisputeRecords
             { service-agreement-id: service-agreement-id }
@@ -188,6 +195,8 @@
         
         (asserts! (is-eq tx-sender (var-get contract-administrator)) error-unauthorized-access)
         (asserts! (is-eq (get agreement-status agreement-details) "DISPUTED") error-invalid-agreement-status)
+        (asserts! (is-valid-agreement-status new-agreement-status) error-invalid-agreement-status)
+        (asserts! (is-valid-description resolution-description) error-invalid-input)
         
         ;; Update dispute record
         (map-set ServiceDisputeRecords
@@ -214,6 +223,7 @@
     
     (let
         ((provider-metrics (unwrap! (map-get? ServiceProviderMetrics { service-provider-address: service-provider-address }) error-agreement-not-found)))
+        (asserts! (is-valid-principal service-provider-address) error-invalid-principal)
         (asserts! (<= rating-score u5) error-invalid-agreement-status)
         (asserts! (> rating-score u0) error-invalid-agreement-status)
         
@@ -251,5 +261,21 @@
         (is-eq agreement-status "COMPLETED")
         (is-eq agreement-status "DISPUTED")
         (is-eq agreement-status "CANCELLED")
+    )
+)
+
+;; Principal validation
+(define-private (is-valid-principal (address principal))
+    (and 
+        (not (is-eq address tx-sender))
+        (is-ok (principal-destruct? address))
+    )
+)
+
+;; Description validation
+(define-private (is-valid-description (description (string-ascii 256)))
+    (and
+        (>= (len description) u1)
+        (<= (len description) u256)
     )
 )
