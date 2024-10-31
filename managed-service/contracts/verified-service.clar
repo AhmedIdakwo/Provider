@@ -81,13 +81,13 @@
         
         ;; Initialize or update provider metrics
         (match (map-get? ServiceProviderMetrics { service-provider-address: service-provider-address })
-            existing-provider-metrics
+            existing-metrics
             (map-set ServiceProviderMetrics
                 { service-provider-address: service-provider-address }
                 {
-                    provider-rating: (default-to u0 (get provider-rating existing-provider-metrics)),
-                    total-service-agreements: (+ (default-to u0 (get total-service-agreements existing-provider-metrics)) u1),
-                    successfully-completed-agreements: (default-to u0 (get successfully-completed-agreements existing-provider-metrics))
+                    provider-rating: (get provider-rating existing-metrics),
+                    total-service-agreements: (+ (get total-service-agreements existing-metrics) u1),
+                    successfully-completed-agreements: (get successfully-completed-agreements existing-metrics)
                 }
             )
             (map-set ServiceProviderMetrics
@@ -132,17 +132,17 @@
         )
         
         ;; Update provider metrics
-        (match (map-get? ServiceProviderMetrics { service-provider-address: (get service-provider-address agreement-details) })
-            provider-metrics
+        (let ((provider-metrics (unwrap! (map-get? ServiceProviderMetrics 
+                { service-provider-address: (get service-provider-address agreement-details) }) 
+                error-agreement-not-found)))
             (map-set ServiceProviderMetrics
                 { service-provider-address: (get service-provider-address agreement-details) }
                 (merge provider-metrics {
-                    successfully-completed-agreements: (+ (default-to u0 (get successfully-completed-agreements provider-metrics)) u1)
+                    successfully-completed-agreements: (+ (get successfully-completed-agreements provider-metrics) u1)
                 })
             )
-            error-agreement-not-found
+            (ok true)
         )
-        (ok true)
     )
 )
 
